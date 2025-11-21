@@ -17,6 +17,7 @@ class Project {
     this.position = null; // e.g., "A", "B" - extracted from JSON file name
     this.machine = null; // e.g., "DMU 100P duoblock Minus"
     this.operator = null; // e.g., "aszilagyi"
+    this.scanType = 'auto'; // 'auto' or 'manual' - how this project was processed
 
     // File paths and structure
     this.jsonFilePath = null; // Path to the target JSON file
