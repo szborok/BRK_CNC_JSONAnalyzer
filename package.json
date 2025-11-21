@@ -1,0 +1,47 @@
+{
+  "name": "jsonanalyzer",
+  "version": "1.0.0",
+  "description": "CNC JSON Analyzer - Quality control rule engine for CNC machining projects",
+  "main": "main.js",
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "cors": "^2.8.5",
+    "express": "^5.1.0"
+  },
+  "scripts": {
+    "setup-test-data": "node scripts/setup-test-data.js",
+    "start": "node main.js --auto",
+    "auto": "node main.js --auto",
+    "manual": "node main.js --manual",
+    "setup": "node main.js --setup",
+    "cleanup": "node main.js --cleanup",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:integration": "node scripts/setup-test-data.js && node main.js --test",
+    "test:no-setup": "node main.js --test",
+    "list-results": "node main.js --list-results",
+    "export-results": "node main.js --export-results",
+    "serve": "node server/index.js",
+    "lint": "eslint src/ server/ utils/ __tests__/",
+    "lint:fix": "eslint src/ server/ utils/ __tests__/ --fix"
+  },
+  "keywords": [
+    "cnc",
+    "manufacturing",
+    "quality-control",
+    "temp-structure",
+    "cross-platform",
+    "brk-dashboard"
+  ],
+  "author": "BRK CNC Management Dashboard",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/supertest": "^6.0.3",
+    "eslint": "^8.57.1",
+    "eslint-plugin-jest": "^29.1.0",
+    "jest": "^30.2.0",
+    "supertest": "^7.1.4"
+  }
+}
