@@ -34,9 +34,10 @@ class DataManager {
    * Save scan results with metadata
    * @param {import('./Project')} project - Project instance
    * @param {Object} analysisResults - Analysis results object
+   * @param {Object} options - Additional metadata (scanType, operator, etc.)
    * @returns {Promise<Object>} Scan result object
    */
-  async saveScanResult(project, analysisResults) {
+  async saveScanResult(project, analysisResults, options = {}) {
     if (!project || typeof project.getFullName !== 'function') {
       throw new Error(`Invalid project object passed to saveScanResult: ${typeof project}`);
     }
@@ -53,6 +54,8 @@ class DataManager {
         success: true,
         rulesApplied: analysisResults?.rules?.length || 0,
         issuesFound: analysisResults?.issues?.length || 0,
+        scanType: options.scanType || 'auto',
+        operator: options.operator || null,
       };
 
       // Save to traditional result file
@@ -83,10 +86,20 @@ class DataManager {
 
       logInfo(`Attempting to save result: ${resultFileName}`);
 
+      // Add metadata to result file
+      const resultWithMetadata = {
+        ...analysisResults,
+        metadata: {
+          scanType: project.scanType || 'auto',
+          operator: project.operator || null,
+          timestamp: new Date().toISOString()
+        }
+      };
+
       // Save to temp manager's results folder
       const tempResultPath = tempManager.saveToTemp(
         resultFileName,
-        JSON.stringify(analysisResults, null, 2),
+        JSON.stringify(resultWithMetadata, null, 2),
         "result"
       );
 
@@ -134,12 +147,13 @@ class DataManager {
                 id: projectName,
                 name: projectName,
                 machine: data.machine || null,
-                operator: data.operator || null,
+                operator: data.metadata?.operator || data.operator || null,
+                scanType: data.metadata?.scanType || 'auto',
                 status: this._determineStatus(data),
                 operationCount: data.summary?.totalOperations || 0,
                 ncFileCount: data.summary?.totalNCFiles || 0,
                 timestamp:
-                  data.timestamp || fs.statSync(filePath).mtime.toISOString(),
+                  data.metadata?.timestamp || data.timestamp || fs.statSync(filePath).mtime.toISOString(),
                 violations: data.violations || [],
                 rulesApplied: data.results?.rulesApplied || [],
               });
@@ -178,12 +192,13 @@ class DataManager {
                 id: projectName,
                 name: projectName,
                 machine: data.machine || null,
-                operator: data.operator || null,
+                operator: data.metadata?.operator || data.operator || null,
+                scanType: data.metadata?.scanType || 'auto',
                 status: this._determineStatus(data),
                 operationCount: data.summary?.totalOperations || 0,
                 ncFileCount: data.summary?.totalNCFiles || 0,
                 timestamp:
-                  data.timestamp || fs.statSync(filePath).mtime.toISOString(),
+                  data.metadata?.timestamp || data.timestamp || fs.statSync(filePath).mtime.toISOString(),
                 violations: data.violations || [],
                 rulesApplied: data.results?.rulesApplied || [],
                 session: session,

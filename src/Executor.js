@@ -188,16 +188,6 @@ class Executor {
   async runManualProject(projectPath) {
     logInfo(`Manual run requested for: ${projectPath}`);
 
-    if (config.app.autorun) {
-      logWarn("Autorun active — will pause after current project.");
-      config.app.autorun = false;
-    }
-
-    this.manualQueue.push({ path: projectPath });
-
-    // Wait for any running project to finish
-    while (this.isRunning) await new Promise((res) => setTimeout(res, 1000));
-
     try {
       this.scanner.scanProject(projectPath);
       const projects = this.scanner.getProjects();
@@ -206,16 +196,15 @@ class Executor {
       const latestProject = projects[projects.length - 1];
       if (latestProject && latestProject.status === "ready") {
         await this.processProject(latestProject);
+        logInfo(`Manual project completed: ${latestProject.getFullName()}`);
       } else {
         logWarn(`No valid project found at: ${projectPath}`);
+        throw new Error(`No valid project found at: ${projectPath}`);
       }
     } catch (err) {
       logError(`Manual project processing failed: ${err.message}`);
+      throw err;
     }
-
-    logInfo("Manual project finished. Resuming autorun...");
-    config.app.autorun = true;
-    await this.start();
   }
 
   /**

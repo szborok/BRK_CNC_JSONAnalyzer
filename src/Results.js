@@ -32,7 +32,11 @@ class Results {
       if (this.dataManager && !config.app.testMode) {
         storageId = await this.dataManager.saveScanResult(
           project,
-          analysisResults
+          analysisResults,
+          {
+            scanType: project.scanType || 'auto',
+            operator: project.operator || null
+          }
         );
         await this.dataManager.saveProject(project);
         logInfo(`📊 Results saved to database: ${storageId}`);
@@ -72,10 +76,23 @@ class Results {
       // Create result file in organized temp folder
       const resultFileName = path.basename(originalResultPath);
 
+      // Add project metadata to results before saving
+      const resultsWithMetadata = {
+        ...analysisResults,
+        machine: project.machine || null,
+        operator: project.operator || null,
+        timestamp: new Date().toISOString(),
+        metadata: {
+          scanType: project.scanType || 'auto',
+          operator: project.operator || null,
+          timestamp: new Date().toISOString()
+        }
+      };
+
       // Use TempFileManager's organized save method
       const tempResultPath = this.tempManager.saveToTemp(
         resultFileName,
-        JSON.stringify(analysisResults, null, 2),
+        JSON.stringify(resultsWithMetadata, null, 2),
         "result"
       );
 
