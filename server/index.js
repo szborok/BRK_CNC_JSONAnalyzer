@@ -166,20 +166,28 @@ app.get("/api/projects", async (req, res) => {
     const endIndex = startIndex + pageSize;
     const paginatedProjects = filteredProjects.slice(startIndex, endIndex);
 
-    const response = {
-      projects: paginatedProjects.map((p) => ({
+    // Enhance each project with analysis results (if available)
+    const enhancedProjects = await Promise.all(paginatedProjects.map(async (p) => {
+      // Try to load existing analysis from JSONAnalyzer's perspective
+      const analysis = await dataManager.getAnalysis(p.id);
+      
+      return {
         id: p.id,
         filename: p.name,
         machine: p.machine || null,
         processedAt: p.timestamp,
-        status: p.status || "unknown",
+        status: analysis?.status || p.status || "copied",
         scanType: p.scanType || 'auto',
         operator: p.operator || null,
         results: {
-          rulesApplied: p.rulesApplied || [],
-          violations: p.violations || []
+          rulesApplied: analysis?.results?.rulesApplied || [],
+          violations: analysis?.results?.violations || []
         }
-      })),
+      };
+    }));
+
+    const response = {
+      projects: enhancedProjects,
       total: filteredProjects.length,
       page,
       pageSize,
@@ -417,7 +425,7 @@ app.post("/api/upload", upload.single("file"), async (req, res) => {
     
     project.status = "ready";
     
-    // Process the project through the executor
+    // Process the project through the executor (this saves results automatically)
     await executor.processProject(project);
     
     if (project.status !== "completed") {
@@ -427,14 +435,8 @@ app.post("/api/upload", upload.single("file"), async (req, res) => {
     // analysisResults is stored directly on project
     const analysisResults = project.analysisResults;
     
-    // Also save to DataManager so it appears in the projects list
-    if (dataManager) {
-      await dataManager.saveScanResult(project, analysisResults, {
-        scanType: 'manual',
-        operator: req.body.operator || 'unknown'
-      });
-      Logger.logInfo(`📊 Manual upload saved to database: ${project.name}`);
-    }
+    // Note: Results are already saved by executor.processProject() -> results.saveProjectResults()
+    // No need to save again here (would create duplicate entries)
     
     // Convert rules Map to array for response
     const rulesArray = Array.from(analysisResults.rules.values());
@@ -535,6 +537,151 @@ app.post("/api/config", async (req, res) => {
       error: {
         code: "CONFIG_ERROR",
         message: "Failed to apply configuration",
+        details: err.message,
+      },
+    });
+  }
+});
+
+/**
+ * POST /api/projects/:id/reanalyze
+ * Force re-analysis of a specific project (bypasses cache)
+ */
+app.post("/api/projects/:id/reanalyze", async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    Logger.logInfo(`🔄 Force re-analysis requested for project: ${id}`);
+
+    const fs = require('fs');
+    const TempFileManager = require("../utils/TempFileManager");
+    const tempManager = new TempFileManager();
+    const tempBasePath = tempManager.getBasePath();
+    const resultPath = path.join(
+      tempBasePath,
+      "JSONScanner",
+      "results",
+      `${id}_BRK_result.json`
+    );
+
+    // Load existing result file (created by JSONScanner)
+    if (!fs.existsSync(resultPath)) {
+      return res.status(404).json({
+        error: {
+          code: "RESULT_NOT_FOUND",
+          message: `No result file found for project ${id}. Run JSONScanner first.`,
+        },
+      });
+    }
+
+    const existingResult = JSON.parse(fs.readFileSync(resultPath, 'utf8'));
+    Logger.logInfo(`📄 Loaded existing result for: ${id}`);
+
+    // Find the source JSON file for this specific project
+    const sourceDataPath = path.join(__dirname, '..', '..', 'BRK_CNC_CORE', 'test-data', 'source_data', 'json_files');
+    
+    // Create a Project instance and run rule analysis
+    const Project = require("../src/Project");
+    const RuleEngine = require("../src/RuleEngine");
+    
+    Logger.logInfo(`🔍 Re-analyzing rules for project: ${id}`);
+    
+    // Find and load the project
+    const findProjectPath = (baseDir, projectId) => {
+      const dirs = fs.readdirSync(baseDir, { withFileTypes: true });
+      for (const dir of dirs) {
+        if (dir.isDirectory()) {
+          const fullPath = path.join(baseDir, dir.name);
+          const result = findProjectJsonFile(fullPath, projectId);
+          if (result) return result;
+        }
+      }
+      return null;
+    };
+    
+    const findProjectJsonFile = (projectDir, projectId) => {
+      try {
+        const subdirs = fs.readdirSync(projectDir, { withFileTypes: true });
+        for (const subdir of subdirs) {
+          if (subdir.isDirectory()) {
+            const positionDir = path.join(projectDir, subdir.name);
+            const machineDirs = fs.readdirSync(positionDir, { withFileTypes: true });
+            for (const machineDir of machineDirs) {
+              if (machineDir.isDirectory()) {
+                const jsonFile = path.join(positionDir, machineDir.name, `${projectId}.json`);
+                if (fs.existsSync(jsonFile)) {
+                  return path.dirname(jsonFile); // Return project path (machine folder)
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        // Skip errors
+      }
+      return null;
+    };
+    
+    const projectPath = findProjectPath(sourceDataPath, id);
+    if (!projectPath) {
+      return res.status(404).json({
+        error: {
+          code: "PROJECT_NOT_FOUND",
+          message: `Source file for project ${id} not found in ${sourceDataPath}`,
+        },
+      });
+    }
+    
+    Logger.logInfo(`📂 Found project at: ${projectPath}`);
+    
+    // Create project instance and load
+    const project = new Project(projectPath);
+    await project.initialize();
+    
+    if (!project.isValid) {
+      return res.status(400).json({
+        error: {
+          code: "PROJECT_INVALID",
+          message: `Failed to initialize project ${id}`,
+        },
+      });
+    }
+    
+    // Run rule analysis
+    const ruleEngine = new RuleEngine();
+    const ruleResults = await ruleEngine.analyzeProject(project);
+    project.setAnalysisResults(ruleResults);
+    
+    // Get the enhanced result with full rule details
+    const enhancedResult = project.getAnalysisResults();
+    
+    // Merge with existing result (keep basic info from JSONScanner, add detailed rules from JSONAnalyzer)
+    const finalResult = {
+      ...existingResult,
+      ...enhancedResult,
+      // Ensure we keep the original processedAt and add an updatedAt
+      processedAt: existingResult.processedAt,
+      updatedAt: new Date().toISOString()
+    };
+    
+    // Save enhanced result back to file
+    fs.writeFileSync(resultPath, JSON.stringify(finalResult, null, 2));
+    Logger.logInfo(`✅ Re-analysis completed and saved for: ${id}`);
+
+    res.json({
+      success: true,
+      message: `Re-analysis completed for project ${id}`,
+      projectId: id,
+      rulesAnalyzed: enhancedResult.results?.rules?.length || 0
+    });
+
+  } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    Logger.logError(`Failed to re-analyze ${req.params.id}: ${err.message}`, error);
+    res.status(500).json({
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to re-analyze project",
         details: err.message,
       },
     });

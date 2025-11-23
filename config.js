@@ -13,9 +13,8 @@ const systemConfig = loadConfig();
 const config = {
   // Application settings
   app: {
-    testMode: systemConfig ? !systemConfig.isConfigured : false, // Use production if configured
-    // Auto-run configuration
-  autorun: false, // Set to true to enable automatic scanning without Dashboard activation
+    mode: 'auto', // 'test' = test data + manual trigger, 'manual' = production + manual trigger, 'auto' = production + autorun
+    useTestPaths: true, // Override to use test-data paths even in auto mode
     scanIntervalMs: 60000, // How often the autorun scanner checks for new JSONs (60 seconds)
     logLevel: systemConfig?.advanced?.logLevel || "info", // can be: 'debug', 'info', 'warn', 'error'
     enableDetailedLogging: true,
@@ -301,25 +300,34 @@ const config = {
   },
 };
 
+// Backward compatibility helpers
+Object.defineProperty(config.app, 'testMode', {
+  get() { return this.mode === 'test'; },
+  set(val) { this.mode = val ? 'test' : (this.mode === 'manual' ? 'manual' : 'auto'); }
+});
+
+Object.defineProperty(config.app, 'autorun', {
+  get() { return this.mode === 'auto'; },
+  set(val) { this.mode = val ? 'auto' : 'manual'; }
+});
+
 /**
  * Helper function to get the correct scanning path based on current mode settings
  * @param {string|null} manualPath - Path provided by user in manual mode (optional)
  * @returns {string} The path to scan for JSON files
  */
 config.getScanPath = function (manualPath = null) {
-  const { testMode, autorun } = this.app;
+  const { mode, useTestPaths } = this.app;
 
-  if (autorun) {
-    // Auto mode: use predefined paths
-    return testMode
-      ? this.paths.test.testDataPathAuto
-      : this.paths.production.productionDataPath;
+  if (mode === 'auto') {
+    // Auto mode: production or test paths based on useTestPaths flag
+    return useTestPaths ? this.paths.test.testDataPathAuto : this.paths.production.productionDataPath;
+  } else if (mode === 'test') {
+    // Test mode: always use test paths
+    return this.paths.test.testDataPathAuto;
   } else {
     // Manual mode: use provided path or fallback to test manual path
-    if (manualPath) {
-      return manualPath;
-    }
-    return testMode ? this.paths.test.testDataPathManual : null;
+    return manualPath || this.paths.test.testDataPathManual;
   }
 };
 
@@ -328,10 +336,8 @@ config.getScanPath = function (manualPath = null) {
  * @returns {boolean} True if user input is required for path selection
  */
 config.requiresUserPath = function () {
-  const { testMode, autorun } = this.app;
-
-  // Only require user path in manual mode when not in test mode
-  return !autorun && !testMode;
+  // Only require user path in manual mode when no path provided
+  return this.app.mode === 'manual';
 };
 
 module.exports = config;
