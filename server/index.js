@@ -689,6 +689,95 @@ app.post("/api/projects/:id/reanalyze", async (req, res) => {
 });
 
 /**
+ * POST /api/analyze
+ * Simple endpoint for AutoRunProcessor to trigger analysis
+ */
+app.post("/api/analyze", async (req, res) => {
+  try {
+    if (!executor) {
+      executor = new Executor(dataManager);
+    }
+
+    const scanPath = config.getScanPath();
+    await executor.scanner.performScan(scanPath);
+    const projects = executor.scanner.getProjects();
+    
+    let analyzed = 0;
+    for (const project of projects) {
+      if (project.status === "ready") {
+        await executor.processProject(project);
+        analyzed++;
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `${analyzed} projects analyzed`,
+      analyzed
+    });
+  } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    Logger.logError(`Analysis failed: ${err.message}`);
+    res.status(500).json({
+      error: {
+        code: "ANALYSIS_FAILED",
+        message: err.message
+      }
+    });
+  }
+});
+
+/**
+ * POST /api/trigger-scan
+ * Trigger a scan cycle (called by JSONScanner when new files found)
+ * BLOCKS until processing completes to ensure sequential execution
+ */
+app.post("/api/trigger-scan", async (req, res) => {
+  try {
+    Logger.logInfo("📡 Received trigger from JSONScanner - starting analysis...");
+
+    // Process synchronously and wait for completion
+    if (!executor) {
+      executor = new Executor(dataManager);
+    }
+
+    // Get scan path from config (test or production)
+    const scanPath = config.getScanPath();
+    
+    // Run scan with explicit path (no user prompt)
+    await executor.scanner.performScan(scanPath);
+    const projects = executor.scanner.getProjects();
+    
+    // Process all projects
+    for (const project of projects) {
+      if (project.status === "ready") {
+        await executor.processProject(project);
+      }
+    }
+    
+    Logger.logInfo(`✅ Analysis completed: ${projects.length} project(s) processed`);
+
+    // Send response AFTER processing completes
+    res.json({
+      success: true,
+      message: "Analysis scan completed",
+      processed: projects.length,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    Logger.logError(`Failed to trigger analysis: ${err.message}`);
+    res.status(500).json({
+      error: {
+        code: "TRIGGER_ERROR",
+        message: "Failed to trigger analysis",
+        details: err.message,
+      },
+    });
+  }
+});
+
+/**
  * POST /api/projects/scan
  * Trigger manual scan (if not in auto mode)
  */
@@ -836,17 +925,7 @@ async function startServer() {
     }
 
     const server = app.listen(PORT, () => {
-      Logger.logInfo(
-        `🚀 JSONScanner API Server running on http://localhost:${PORT}`
-      );
-      console.log(
-        `🚀 JSONScanner API Server running on http://localhost:${PORT}`
-      );
-      console.log(`📊 Mode: ${config.app.testMode ? "TEST" : "PRODUCTION"}`);
-      console.log(
-        `🔄 Auto-run: ${config.app.autorun ? "ENABLED" : "DISABLED"}`
-      );
-      console.log(`📡 API endpoints available at http://localhost:${PORT}/api`);
+      console.log(`API Server running on http://localhost:${PORT}`);
     });
     
     // Handle port binding errors

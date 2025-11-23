@@ -29,15 +29,6 @@ jspm_packages/
 # Output of 'npm pack'
 *.tgz
 
-# Test data (use centralized CNC_TestData repository instead)
-data/test_data/
-test_data/
-**/test_data/
-
-# Working data and temp files  
-working_data/
-BRK*CNC*Management*Dashboard/
-
 # Yarn Integrity file
 .yarn-integrity
 
@@ -68,27 +59,3 @@ temp/
 *.tmp
 *.cache
 
-# Generated analysis files (BRK files)
-*_BRK_fixed.json
-*_BRK_result.json
-
-# Read-only processing temp folders
-BRK_CNC_Management_Dashboard/
-"BRK CNC Management Dashboard"/
-
-# Test data (now in centralized CNC_TestData repository)
-data/test_source_data/
-data/test_processed_data/
-
-# Session and tracking files
-*.session
-
-# Test and development artifacts
-test_output/
-test_results/
-archive/
-
-# Development logs (keep recent production logs)
-logs/app-2025-10-*.log
-logs/app-2025-11-0[1-4].log
-data/uploads/*

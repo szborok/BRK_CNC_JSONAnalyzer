@@ -13,7 +13,7 @@ const systemConfig = loadConfig();
 const config = {
   // Application settings
   app: {
-    mode: 'auto', // 'test' = test data + manual trigger, 'manual' = production + manual trigger, 'auto' = production + autorun
+    mode: 'manual', // 'test' = test data + manual trigger, 'manual' = production + manual trigger, 'auto' = production + autorun
     useTestPaths: true, // Override to use test-data paths even in auto mode
     scanIntervalMs: 60000, // How often the autorun scanner checks for new JSONs (60 seconds)
     logLevel: systemConfig?.advanced?.logLevel || "info", // can be: 'debug', 'info', 'warn', 'error'
@@ -112,23 +112,25 @@ const config = {
 
   // Paths
   paths: {
-    // Test mode paths (for development and testing) - uses centralized BRK_CNC_CORE/test-data
+    // Test mode paths (for development and testing) - reads from JSONScanner output
     test: {
       testDataPathAuto: path.join(
         __dirname,
         "..",
         "BRK_CNC_CORE",
         "test-data",
-        "source_data",
-        "json_files"
+        "working_data",
+        "BRK CNC Management Dashboard",
+        "JSONScanner"
       ),
       testDataPathManual: path.join(
         __dirname,
         "..",
         "BRK_CNC_CORE",
         "test-data",
-        "source_data",
-        "json_files"
+        "working_data",
+        "BRK CNC Management Dashboard",
+        "JSONScanner"
       ),
     },
     // Production mode paths (for live operation)
@@ -149,16 +151,16 @@ const config = {
 
   // File filtering for temp operations
   tempFiles: {
-    essentialExtensions: [".json", ".h", ".tls"], // Only copy these file types
-    skipExtensions: [".gif", ".png", ".jpg", ".html", ".stl", ".vcproject"], // Skip these file types
+    essentialExtensions: [".json"], // Only copy JSON files - analyzer reads from source directly
+    skipExtensions: [".gif", ".png", ".jpg", ".html", ".stl", ".vcproject", ".h", ".tls"], // Skip these file types
     sessionTrackingExtension: ".session", // Extension for session tracking files
   },
 
   // File naming
   files: {
     jsonExtension: ".json",
-    fixedSuffix: "BRK_fixed",
-    resultSuffix: "BRK_result",
+    fixedSuffix: "fixed",
+    resultSuffix: "result",
   },
 
   // Tool categories for rules
