@@ -191,4 +191,10 @@ function isTouchProbeTool(toolName) {
   );
 }
 
+autoCorrectionContour.appliesTo = {
+  machines: true,
+  cycles: false,
+  tools: false
+};
+
 module.exports = autoCorrectionContour;

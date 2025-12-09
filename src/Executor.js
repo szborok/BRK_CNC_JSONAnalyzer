@@ -58,6 +58,8 @@ class Executor {
   async runAutorunCycle() {
     let scanCount = 0;
 
+    logInfo(`🔄 Auto mode enabled - will check for new files every ${config.processing.scanIntervalMs / 1000} seconds`);
+
     while (this.isRunning && config.app.autorun) {
       scanCount++;
       const scanStartTime = new Date();
@@ -100,7 +102,7 @@ class Executor {
 
       // Wait before scanning again with countdown
       if (this.isRunning && config.app.autorun) {
-        await this.waitWithCountdown(config.app.scanIntervalMs, scanCount);
+        await this.waitWithCountdown(config.processing.scanIntervalMs, scanCount);
       }
     }
   }
@@ -213,7 +215,7 @@ class Executor {
   async runManualMode() {
     try {
       logInfo(
-        `Starting manual mode (${config.app.testMode ? "TEST" : "PRODUCTION"})`
+        `Starting manual mode in ${config.app.environment.toUpperCase()} environment`
       );
 
       // Use the scanner's path resolution method with async support

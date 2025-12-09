@@ -143,4 +143,10 @@ function checkRLCompensationInNcFile(ncFilePath, programName) {
   }
 }
 
+M110Contour.appliesTo = {
+  machines: true,
+  cycles: false,
+  tools: true
+};
+
 module.exports = M110Contour;

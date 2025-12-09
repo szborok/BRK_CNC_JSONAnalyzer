@@ -77,4 +77,10 @@ function hasRequiredTool(operation) {
          config.toolCategories.tgt.some(tool => toolName.startsWith(tool));
 }
 
+M110Helical.appliesTo = {
+  machines: false,
+  cycles: true,
+  tools: true
+};
+
 module.exports = M110Helical;

@@ -147,4 +147,10 @@ function isTouchProbeTool(toolName) {
   );
 }
 
+autoCorrectionPlane.appliesTo = {
+  machines: true,
+  cycles: false,
+  tools: false
+};
+
 module.exports = autoCorrectionPlane;

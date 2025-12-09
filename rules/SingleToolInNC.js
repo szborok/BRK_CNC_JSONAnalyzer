@@ -74,4 +74,10 @@ function isAutoCorrectionProgram(operation) {
          operationType.includes('correction');
 }
 
+singleToolInNC.appliesTo = {
+  machines: true,
+  cycles: false,
+  tools: false
+};
+
 module.exports = singleToolInNC;

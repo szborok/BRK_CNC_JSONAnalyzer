@@ -6,6 +6,13 @@
 
 const config = require("../config");
 
+// Rule metadata
+gunDrill60MinLimit.appliesTo = {
+  machines: true,
+  cycles: true,
+  tools: true
+};
+
 /**
  * Main rule function - checks gundrill 60-minute time limits per NC file
  * @param {Project} project - The project instance
@@ -56,5 +63,12 @@ function gunDrill60MinLimit(project) {
       : 'All gundrill operations within time limits'
   };
 }
+
+// Attach metadata
+gunDrill60MinLimit.appliesTo = {
+  machines: true,
+  cycles: false,
+  tools: true
+};
 
 module.exports = gunDrill60MinLimit;

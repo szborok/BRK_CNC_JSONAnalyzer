@@ -91,8 +91,8 @@ async function initializeDataManager() {
 app.get("/api/status", (req, res) => {
   res.json({
     status: "running",
-    mode: config.app.autorun ? "auto" : "manual",
-    testMode: config.app.testMode,
+    mode: config.app.mode,
+    environment: config.app.environment,
     version: "2.0.0",
     timestamp: new Date().toISOString(),
     dataManager: dataManager ? "initialized" : "not initialized",
@@ -907,22 +907,8 @@ async function startServer() {
       );
     }
 
-    // Initialize Executor (always needed for manual uploads)
-    Logger.logInfo("Initializing Executor...");
-    executor = new Executor(dataManager);
-    
-    // Start Executor in AUTO mode if configured
-    if (config.app.autorun) {
-      Logger.logInfo("Starting Executor in AUTO mode...");
-      // Don't await - let it run in background
-      executor.start().catch((error) => {
-        const msg = error instanceof Error ? error.message : String(error);
-        Logger.logError(`Executor error: ${msg}`);
-      });
-      Logger.logInfo("Executor started in AUTO mode");
-    } else {
-      Logger.logInfo("Executor ready for manual operations");
-    }
+    // JSONAnalyzer never runs in auto mode - only responds to triggers from JSONScanner
+    Logger.logInfo("Running in TRIGGER mode - waiting for calls from JSONScanner");
 
     const server = app.listen(PORT, () => {
       console.log(`API Server running on http://localhost:${PORT}`);
